@@ -97,6 +97,17 @@ def build_payload(command: str, boundary: str) -> bytes:
     return body.encode()
 
 
+def decode_escapes(s: str) -> str:
+    """Decode escape sequences like \\n, \\t, etc."""
+    try:
+        # Use codecs.decode to handle escape sequences properly
+        import codecs
+        return codecs.decode(s, 'unicode_escape')
+    except:
+        # Fallback to manual replacement
+        return s.replace('\\n', '\n').replace('\\t', '\t').replace('\\r', '\r')
+
+
 def extract_output(response: requests.Response) -> str | None:
     """
     Parse command output from the NEXT_REDIRECT digest in various response locations.
@@ -112,12 +123,12 @@ def extract_output(response: requests.Response) -> str | None:
         )
         if digest and "NEXT_REDIRECT" not in str(digest):
             # digest is raw output
-            return str(digest).strip()
+            return decode_escapes(str(digest).strip())
         if digest:
             # sometimes format is "NEXT_REDIRECT;replace;<output>"
             parts = str(digest).split(";")
             if len(parts) >= 3:
-                return parts[-1].strip()
+                return decode_escapes(parts[-1].strip())
     except Exception:
         pass
 
@@ -133,14 +144,14 @@ def extract_output(response: requests.Response) -> str | None:
         if m:
             result = m.group(1).strip().rstrip("`")
             if result:
-                return result
+                return decode_escapes(result)
 
     # Check Location header for redirect with digest
     location = response.headers.get("Location", "")
     if location:
         m = re.search(r'digest=([^&]+)', location)
         if m:
-            return m.group(1).strip()
+            return decode_escapes(m.group(1).strip())
 
     return None
 
